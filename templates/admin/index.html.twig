@@ -1,0 +1,112 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestion du catalogue{% endblock %}
+
+{% block body %}
+
+<div class="container-fluid py-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0">Gestion du catalogue</h1>
+        </div>
+        
+        <div class="card-body">
+            <!-- Formulaire de filtre -->
+            <div class="row mb-4 g-3">
+                <div class="col-md-4">
+                    <label for="titreFilter" class="form-label">Filtrer par Titre</label>
+                    <input type="text" id="titreFilter" class="form-control" placeholder="Saisir un titre...">
+                </div>
+                <div class="col-md-4">
+                    <label for="auteurFilter" class="form-label">Filtrer par Auteur</label>
+                    <input type="text" id="auteurFilter" class="form-control" placeholder="Saisir un auteur...">
+                </div>
+                <div class="col-md-4">
+                    <label for="categorieFilter" class="form-label">Filtrer par Catégorie</label>
+                    <input type="text" id="categorieFilter" class="form-control" placeholder="Saisir une catégorie...">
+                </div>
+            </div>
+
+            <!-- Table de gestion des livres -->
+            <div class="table-responsive">
+                <table id="livresTable" class="table table-striped table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center">Titre</th>
+                            <th class="text-center">Description</th>
+                            <th class="text-center">Auteur</th>
+                            <th class="text-center">Catégorie</th>
+                            <th class="text-center">Langue</th>
+                            <th class="text-center">Stock</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for livre in livres %}
+                            <tr>
+                                <td class="text-center">{{ livre.title }}</td>
+                                <td class="text-center">{{ livre.description|slice(0, 50) }}{% if livre.description|length > 50 %}...{% endif %}</td>
+                                <td class="text-center">{{ livre.auteur.name }} {{ livre.auteur.firstname }}</td>
+                                <td class="text-center">{{ livre.category.name }}</td>
+                                <td class="text-center">{{ livre.language.name }}</td>
+                                <td class="text-center">{{ livre.getQuantiteTotale() }}</td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        {% if livre.id %}
+                                            <a href="{{ path('livre_edit', {'id': livre.id}) }}" class="btn btn-sm btn-outline-warning">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{{ path('livre_confirm_delete', {'id': livre.id}) }}" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4 text-end">
+                <a href="{{ path('admin_livre_ajout') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Ajouter un livre
+                </a>
+                <a href="{{ path('reservation_history') }}" class="btn btn-primary">
+                    Voir l'historique de réservations
+                </a>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        var table = $('#livresTable').DataTable({
+            "paging": true,
+            "searching": true, 
+            "ordering": true,
+            "info": true,
+            "lengthChange": false,
+            "language": {
+                "url": "https://cdn.datatables.net/plug-ins/1.12.1/i18n/French.json"
+            }
+        });
+
+        $('#titreFilter').on('keyup', function() {
+            table.columns(0).search(this.value).draw(); 
+        });
+
+        $('#auteurFilter').on('keyup', function() {
+            table.columns(2).search(this.value).draw();
+        });
+
+        $('#categorieFilter').on('keyup', function() {
+            table.columns(3).search(this.value).draw(); 
+        });
+    });
+</script>
+
+{% endblock %}

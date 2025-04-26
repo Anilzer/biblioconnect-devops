@@ -1,3 +1,12 @@
-body {
-    background-color: skyblue;
+body {}
+
+.rating-options .form-check {
+    display: inline-block;
+    margin-right: 15px;
+}
+
+.form-control::placeholder {
+    color: #6c757d;
+    font-style: italic;
+    opacity: 0.8;
 }

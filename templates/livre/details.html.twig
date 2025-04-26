@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Détails du livre{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <h1>{{ livre.title }}</h1>
+    <p><strong>Auteur :</strong> {{ livre.auteur.firstname }} {{ livre.auteur.name }}</p>
+    <p><strong>Catégorie :</strong> {{ livre.category.name ?? 'Non classé' }}</p>
+    <p><strong>Description :</strong> {{ livre.description }}</p>
+    <p><strong>Langue :</strong> {{ livre.language.name }}, {{ livre.language.code }}</p>
+
+    <a href="{{ path('livres_list') }}" class="btn btn-secondary mt-3">← Retour à la liste</a>
+
+   <h3 class="mt-3">Commentaires</h3>
+    {% for commentaire in livre.commentaires %}
+        <div class="card my-2 p-2">
+            <div class="d-flex align-items-center mb-1">
+                <strong class="me-2">{{ commentaire.user.firstname }}</strong>
+                <span class="me-2">- Note :</span>
+                <div class="d-flex">
+                    {% for i in 1..5 %}
+                        {% if i <= commentaire.note %}
+                            <i class="fas fa-star text-warning me-1"></i>
+                        {% else %}
+                            <i class="far fa-star text-muted me-1"></i>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <p class="mb-1">{{ commentaire.contenu }}</p>
+            <small class="text-muted">{{ commentaire.dateCommentaire|date('d/m/Y H:i') }}</small>
+        </div>
+    {% else %}
+        <p>Aucun commentaire pour ce livre.</p>
+    {% endfor %}
+
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success">
+            {{ message }}
+        </div>
+    {% endfor %}
+    {{ form_start(commentForm) }}
+        {{ form_widget(commentForm.contenu) }}
+        <div class="rating-options mb-3">
+             {{ form_row(commentForm.note) }}
+        </div>
+        <button class="btn btn-primary mb-5">
+            <i class="fas fa-pen"></i> Envoyer
+        </button>
+    {{ form_end(commentForm) }}
+
+
+</div>
+{% endblock %}

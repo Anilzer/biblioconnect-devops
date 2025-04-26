@@ -1,0 +1,67 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modifier le livre{% endblock %}
+
+{% block body %}
+{% for message in app.flashes('success') %}
+        <div class="alert alert-success">
+            {{ message }}
+        </div>
+    {% endfor %}
+<div class="container mt-5 d-flex justify-content-center">
+    <div class="card" style="width: 30rem;">
+        <div class="card-header">
+            <h3>Modifier le livre</h3>
+        </div>
+        <div class="card-body">
+            {{ form_start(form, {'attr': {'class': 'mb-4'}}) }}
+
+                <div class="mb-3">
+                    {{ form_label(form.title, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.title, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(form.title, {'attr': {'class': 'text-danger'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.auteur, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.auteur, {'attr': {'class': 'form-select'}}) }}
+                    {{ form_errors(form.auteur, {'attr': {'class': 'text-danger'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.category, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.category, {'attr': {'class': 'form-select'}}) }}
+                    {{ form_errors(form.category, {'attr': {'class': 'text-danger'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.language, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.language, {'attr': {'class': 'form-select'}}) }}
+                    {{ form_errors(form.language, {'attr': {'class': 'text-danger'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form_label(form.description, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.description, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(form.description, {'attr': {'class': 'text-danger'}}) }}
+                </div>
+
+                <div class="mb-3">
+                    <h5>Stock</h5>
+                    {{ form_row(form.stock.quantite, {
+                        'label': 'Quantité disponible',
+                        'attr': {'class': 'form-control', 'min': 0},
+                        'row_attr': {'class': 'mb-3'}
+                    }) }}
+                </div>
+
+                <div class="mb-3">
+                    <button class="btn btn-primary">Modifier</button>
+                </div>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

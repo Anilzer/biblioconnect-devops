@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Créer un nouveau livre{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h3 class="mb-0 text-center">Créer un nouveau livre</h3>
+                </div>
+                <div class="card-body">
+                    {{ form_start(form) }}
+                        <div class="mb-3">
+                            {{ form_label(form.title) }}
+                            {{ form_widget(form.title, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.title) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.description) }}
+                            {{ form_widget(form.description, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.description) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.auteur) }}
+                            {{ form_widget(form.auteur, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.auteur) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.category) }}
+                            {{ form_widget(form.category, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.category) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.language) }}
+                            {{ form_widget(form.language, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.language) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.stock) }}
+                            {{ form_widget(form.stock, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.stock) }}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">Créer</button>
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{{ path('admin_livres') }}" class="btn btn-link">Retour à la liste des livres</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

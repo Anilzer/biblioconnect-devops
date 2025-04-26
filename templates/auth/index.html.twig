@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Inscription{% endblock %}
+
+{% block body %}
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <!-- Card pour l'inscription -->
+                <div class="card shadow-sm">
+                    <div class="card-header text-center">
+                        <h3><b>Inscription</b></h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- Affichage des messages flash -->
+                        {% for label, messages in app.flashes %}
+                            <div class="alert alert-{{ label }}">
+                                {% for message in messages %}
+                                    <p>{{ message }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        {{ form_start(form) }}
+                        <div class="mb-3">
+                                {{ form_row(form.firstname) }}
+                            </div>
+                            <div class="mb-3">
+                                {{ form_row(form.name) }}
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form_row(form.email) }} 
+                            </div>
+                            <div class="mb-3">
+                                {{ form_row(form.plainPassword) }}
+                            </div>
+
+                            <!-- Affichage des erreurs pour chaque champ -->
+                            {% for child in form %}
+                                {% if child.vars.errors|length > 0 %}
+                                    <div class="alert alert-danger">
+                                        {% for error in child.vars.errors %}
+                                            <p>{{ error.message }}</p>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+
+                            <button type="submit" class="btn btn-primary w-100">S'inscrire</button>
+                        {{ form_end(form) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

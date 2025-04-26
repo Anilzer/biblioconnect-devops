@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Profil{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <h1>Mon Profil</h1>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">{{ user.firstname }} {{ user.name }}</h5>
+            <p class="card-text"><strong>Email :</strong> {{ user.email }}</p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Mes réservations</h5>
+            {% if reservations is empty %}
+                <p>Aucune réservation pour le moment.</p>
+            {% else %}
+                <ul class="list-group list-group-flush">
+                    {% for reservation in reservations %}
+                        <li class="list-group-item">
+                            <strong>Livre :</strong> {{ reservation.livre.title }}<br>
+                            <strong>Statut :</strong> {{ reservation.statut }}<br>
+                            <strong>Date de réservation :</strong> {{ reservation.dateReservation|date('d/m/Y') }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-5">
+        <div class="card-body">
+            <h5 class="card-title">Mes commentaires</h5>
+            {% if commentaires is empty %}
+                <p>Vous n'avez pas encore laissé de commentaires.</p>
+            {% else %}
+                <ul class="list-group list-group-flush">
+                    {% for commentaire in commentaires %}
+                        <li class="list-group-item">
+                            <strong>Livre :</strong> {{ commentaire.livre.title }}<br>
+                            <strong>Note :</strong> 
+                            {% for i in 1..5 %}
+                                {% if i <= commentaire.note %}
+                                    <i class="fas fa-star text-warning"></i>
+                                {% else %}
+                                    <i class="far fa-star text-muted"></i>
+                                {% endif %}
+                            {% endfor %}
+                            <br>
+                            <strong>Commentaire :</strong> {{ commentaire.contenu }}<br>
+                            <small class="text-muted">Posté le {{ commentaire.dateCommentaire|date('d/m/Y H:i') }}</small>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
