@@ -1,5 +1,9 @@
 
-FROM dunglas/frankenphp:1-php8.2-bookworm
+FROM dunglas/frankenphp:1-php8.2-trixie
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

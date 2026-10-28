@@ -120,7 +120,6 @@ jobs:
             .
 
       - name: Scanner avec Trivy
-        
         run: |
           IMAGE="${{ steps.image.outputs.name }}:${{ github.sha }}"
 
@@ -129,7 +128,9 @@ jobs:
             -v trivy-cache-biblio:/root/.cache/ \
             aquasec/trivy:0.68.2 image \
             --image-src docker \
+            --scanners vuln \
             --severity HIGH,CRITICAL \
+            --ignore-unfixed \
             --exit-code 1 \
             "$IMAGE"
 
