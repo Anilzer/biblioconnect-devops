@@ -67,3 +67,28 @@ jobs:
 
       - name: Executer PHPUnit
         run: php vendor/bin/phpunit -c phpunit.xml.dist
+  sonar-analysis:
+    name: Analyse SonarQube - Symfony
+    needs: php-tests
+    runs-on: [self-hosted, Windows, X64]
+
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: Analyser BiblioConnect
+        shell: powershell
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          $scanner = "C:\tools\sonar-scanner-7.2.0.5079-windows-x64\bin\sonar-scanner.bat"
+
+          if (-not (Test-Path $scanner)) {
+              throw "SonarScanner introuvable"
+          }
+
+          & $scanner "-Dsonar.host.url=http://127.0.0.1:9000"
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "Echec de l'analyse SonarQube"
+          }
