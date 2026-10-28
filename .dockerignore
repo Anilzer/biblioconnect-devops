@@ -1,0 +1,9 @@
+.git
+.github
+vendor
+var
+.env.local
+.env.*.local
+compose.tp.yaml
+tests
+README.md
