@@ -1,0 +1,83 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: biblioconnect
+  namespace: biblioconnect
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: biblioconnect
+  template:
+    metadata:
+      labels:
+        app: biblioconnect
+    spec:
+      initContainers:
+        - name: database-migrations
+          image: ghcr.io/anilzer/biblioconnect-devops:fdceea7f291ffb354c5d3cd1c3ccf67aae5bbad3
+          imagePullPolicy: IfNotPresent
+          command:
+            - php
+            - bin/console
+            - doctrine:migrations:migrate
+            - --no-interaction
+            - --env=prod
+          env:
+            - name: APP_ENV
+              value: prod
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: biblio-secrets
+                  key: APP_SECRET
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: biblio-secrets
+                  key: DATABASE_URL
+      containers:
+        - name: biblioconnect
+          image: ghcr.io/anilzer/biblioconnect-devops:fdceea7f291ffb354c5d3cd1c3ccf67aae5bbad3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: APP_ENV
+              value: prod
+            - name: APP_DEBUG
+              value: "0"
+            - name: SERVER_NAME
+              value: ":80"
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: biblio-secrets
+                  key: APP_SECRET
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: biblio-secrets
+                  key: DATABASE_URL
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+ 
