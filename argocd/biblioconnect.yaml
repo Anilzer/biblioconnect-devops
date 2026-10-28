@@ -1,0 +1,21 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: biblioconnect
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Anilzer/biblioconnect-devops.git
+    targetRevision: feature/ci-cd
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: biblioconnect
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - CreateNamespace=true

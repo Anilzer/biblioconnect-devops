@@ -1,0 +1,73 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: biblio-postgres
+  namespace: biblioconnect
+spec:
+  selector:
+    app: biblio-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: biblio-postgres
+  namespace: biblioconnect
+spec:
+  serviceName: biblio-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: biblio-postgres
+  template:
+    metadata:
+      labels:
+        app: biblio-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: biblioconnect
+            - name: POSTGRES_USER
+              value: biblio
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: biblio-secrets
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U biblio -d biblioconnect
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 2Gi
