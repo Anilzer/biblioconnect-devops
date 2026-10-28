@@ -21,7 +21,7 @@ jobs:
     env:
       APP_ENV: test
       APP_SECRET: ci_test_secret_not_for_production
-      DATABASE_URL: "postgresql://biblio:biblio_test@127.0.0.1:5432/biblioconnect_test?serverVersion=16&charset=utf8"
+      DATABASE_URL: "postgresql://biblio:biblio_test@127.0.0.1:5432/biblioconnect?serverVersion=16&charset=utf8"
 
     services:
       postgres:
@@ -59,8 +59,11 @@ jobs:
       - name: Verifier Symfony
         run: php bin/console about
 
+      - name: Creer la base PostgreSQL de test
+        run: php bin/console doctrine:database:create --if-not-exists --env=test
+
       - name: Executer les migrations PostgreSQL
-        run: php bin/console doctrine:migrations:migrate --no-interaction
+        run: php bin/console doctrine:migrations:migrate --no-interaction --env=test
 
       - name: Executer PHPUnit
         run: php vendor/bin/phpunit -c phpunit.xml.dist
