@@ -189,3 +189,87 @@ jobs:
 
           git commit -m "gitops: deploy image ${{ github.sha }} [skip ci]"
           git push origin HEAD:feature/ci-cd
+  
+  deploy-vps:
+    name: CD - Production OVHcloud
+    needs:
+      - docker-ghcr
+      - update-gitops
+
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/feature/ci-cd'
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    environment:
+      name: production
+      url: https://biblio.andilabayomi.fr/login
+
+    permissions:
+      contents: read
+
+    concurrency:
+      group: biblioconnect-vps-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Vérifier la version à déployer
+        env:
+          IMAGE_SHA: ${{ github.sha }}
+        run: |
+          if [[ ! "$IMAGE_SHA" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "SHA invalide"
+            exit 1
+          fi
+
+          echo "Version validée par la CI : $IMAGE_SHA"
+
+      - name: Configurer la connexion SSH sécurisée
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p "$HOME/.ssh"
+
+          printf '%s\n' "$VPS_SSH_KEY" \
+            > "$HOME/.ssh/biblioconnect_deploy"
+
+          printf '%s\n' "$VPS_KNOWN_HOSTS" \
+            > "$HOME/.ssh/known_hosts"
+
+          chmod 600 "$HOME/.ssh/biblioconnect_deploy"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Déployer BiblioConnect sur OVHcloud
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          IMAGE_SHA: ${{ github.sha }}
+        run: |
+          ssh \
+            -i "$HOME/.ssh/biblioconnect_deploy" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$VPS_USER@$VPS_HOST" \
+            "deploy $IMAGE_SHA"
+
+      - name: Vérifier le site de production
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --retry 5 \
+            --retry-delay 3 \
+            --max-time 15 \
+            https://biblio.andilabayomi.fr/login \
+            -o /dev/null
+
+          echo "BiblioConnect est accessible en production."
+
