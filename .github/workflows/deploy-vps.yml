@@ -1,0 +1,81 @@
+
+name: Deploy BiblioConnect to VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: "SHA Git complet (40 caracteres) de l'image GHCR validee"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: biblioconnect-vps-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to OVHcloud
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://biblio.andilabayomi.fr/login
+
+    timeout-minutes: 15
+
+    steps:
+      - name: Validate image SHA
+        env:
+          IMAGE_SHA: ${{ inputs.image_sha }}
+        run: |
+          if [[ ! "$IMAGE_SHA" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "Invalid Git SHA"
+            exit 1
+          fi
+
+      - name: Configure secure SSH access
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p "$HOME/.ssh"
+
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/biblioconnect_deploy"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          chmod 600 "$HOME/.ssh/biblioconnect_deploy"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy image to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          IMAGE_SHA: ${{ inputs.image_sha }}
+        run: |
+          ssh \
+            -i "$HOME/.ssh/biblioconnect_deploy" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$VPS_USER@$VPS_HOST" \
+            "deploy $IMAGE_SHA"
+
+      - name: Verify production HTTPS
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --retry 5 \
+            --retry-delay 3 \
+            --max-time 15 \
+            https://biblio.andilabayomi.fr/login \
+            -o /dev/null
+
+          echo "Production endpoint is responding."
