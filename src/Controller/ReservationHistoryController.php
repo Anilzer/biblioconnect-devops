@@ -2,24 +2,26 @@
 
 namespace App\Controller;
 
+use App\Repository\ReservationRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
-use App\Repository\ReservationRepository;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class ReservationHistoryController extends AbstractController
 {
-    #[Route('/librarian/reservation/history', name: 'reservation_history')]
-    public function index(ReservationRepository $reservationRepository)
-    {
-        $user = $this->getUser();
+    #[Route(
+        '/librarian/reservation/history',
+        name: 'reservation_history'
+    )]
+    public function index(
+        ReservationRepository $reservationRepository
+    ): Response {
+        // Cette page est réservée au bibliothécaire/admin.
+        $this->denyAccessUnlessGranted('ROLE_LIBRARIAN');
 
-        if (!$user) {
-            return $this->redirectToRoute('app_login');
-        }
-
+        // Afficher toutes les réservations des clients.
         $reservations = $reservationRepository->findBy(
-            ['user' => $user],
+            [],
             ['dateReservation' => 'DESC']
         );
 
