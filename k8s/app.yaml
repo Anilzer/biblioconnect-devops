@@ -22,7 +22,7 @@ spec:
     spec:
       initContainers:
         - name: database-migrations
-          image: ghcr.io/anilzer/biblioconnect-devops:fdceea7f291ffb354c5d3cd1c3ccf67aae5bbad3
+          image: ghcr.io/anilzer/biblioconnect-devops:9b131ea2fd12642aee880545600c3b57cbb8fa53
           imagePullPolicy: IfNotPresent
           command:
             - php
@@ -45,7 +45,7 @@ spec:
                   key: DATABASE_URL
       containers:
         - name: biblioconnect
-          image: ghcr.io/anilzer/biblioconnect-devops:fdceea7f291ffb354c5d3cd1c3ccf67aae5bbad3
+          image: ghcr.io/anilzer/biblioconnect-devops:9b131ea2fd12642aee880545600c3b57cbb8fa53
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
