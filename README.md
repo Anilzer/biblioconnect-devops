@@ -1,214 +1,289 @@
-# BiblioConnect — Industrialisation CI/CD et GitOps
+# BiblioConnect — Industrialisation CI/CD, GitOps et déploiement OVHcloud
 
-![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=githubactions&logoColor=white)
-![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?logo=php&logoColor=white)
-![Symfony](https://img.shields.io/badge/Symfony-7.4_LTS-black?logo=symfony&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s-326CE5?logo=kubernetes&logoColor=white)
-![GitOps](https://img.shields.io/badge/GitOps-Argo_CD-EF7B4D)
+![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?logo=php&logoColor=white) ![Symfony](https://img.shields.io/badge/Symfony-7.4_LTS-black?logo=symfony&logoColor=white) ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=githubactions&logoColor=white) ![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s-326CE5?logo=kubernetes&logoColor=white) ![GitOps](https://img.shields.io/badge/GitOps-Argo_CD-EF7B4D) ![Production](https://img.shields.io/badge/Production-OVHcloud-0050D7)
 
-## 1. Contexte et objectif
+**Projet :** application de gestion de bibliothèque (catalogue, authentification et rôles, réservation de livres, gestion bibliothécaire).  
+**Auteurs / soutenance :** Andil ABAYOMI et Thomas VALLET.  
+**Dépôt initial conservé :** https://github.com/Anilzer/biblioconnect  
+**Dépôt DevOps :** https://github.com/Anilzer/biblioconnect-devops — branche de travail `feature/ci-cd`  
+**Production :** https://biblio.andilabayomi.fr/login
 
-**BiblioConnect** est une application web de gestion de bibliothèque développée avec **Symfony, Twig et PostgreSQL**. Dans le cadre d'un TP DevOps, l'objectif est d'industrialiser sa livraison sans perturber le dépôt applicatif d'origine.
+> **Périmètre :** ce dépôt permet de construire, tester, analyser, publier et déployer BiblioConnect. La production OVHcloud utilise Docker Compose et Traefik ; la démonstration GitOps locale utilise K3s/k3d et Argo CD. Les deux cibles emploient des images Docker versionnées, mais pas le même orchestrateur.
 
-Le travail est réalisé dans un dépôt séparé, sur la branche **`feature/ci-cd`** :
+## 1. Objectif et résultats
 
-- Application d'origine : <https://github.com/Anilzer/biblioconnect>
-- Dépôt DevOps : <https://github.com/Anilzer/biblioconnect-devops>
+Industrialiser la livraison de l'application Symfony **sans modifier le dépôt initial**, avec des contrôles automatisés et des procédures de déploiement/retour arrière reproductibles.
 
-**Objectifs couverts :** intégration continue, tests automatisés, analyse qualité, audit de sécurité, construction et publication d'image Docker, déploiement GitOps avec Argo CD et démonstration d'un rollback.
+| Capacité | Mise en œuvre | Vérification disponible |
+|---|---|---|
+| Tests applicatifs | PHPUnit et PostgreSQL de test | 4 tests, 5 assertions réussies lors du contrôle connu |
+| Qualité | SonarQube via runner Windows auto-hébergé | Analyse intégrée au pipeline |
+| Sécurité | `composer audit` et Trivy | Vérifications CI ; aucun audit ne garantit l'absence totale de vulnérabilités |
+| Packaging | PHP 8.2 / Symfony 7.4 / FrankenPHP | Dockerfile et image GHCR |
+| GitOps local | K3s via k3d, manifests dans `k8s/`, Argo CD | Déploiement et rollback V1/V2 démontrés |
+| Production | VPS Ubuntu OVHcloud, Docker Compose, Traefik, HTTPS | Déploiements V1/V2 et rollback démontrés |
+| Données de démonstration | PostgreSQL **de production**, isolé du local | 10 livres, 10 auteurs, 3 catégories, 2 langues insérés et visibles dans le catalogue |
+| Déploiement par push unique | Job VPS ajouté à `ci-cd.yml` | **À confirmer par une exécution globale réussie des cinq jobs** |
 
-## 2. Architecture technique
+## 2. Architecture
 
-| Couche | Technologies / rôle |
+```text
+PC développeur — git push origin feature/ci-cd
+                       |
+                       v
+                 GitHub Actions
+           +-----------+------------+
+           | PHP / Composer / PHPUnit|
+           | SonarQube (runner local)|
+           | Docker build + Trivy   |
+           +-----------+------------+
+                       |
+                       v
+            GHCR — image taggée SHA Git
+                       |
+             +---------+---------+
+             |                   |
+             v                   v
+       CD LOCAL / GitOps       CD VPS / OVHcloud
+       update-gitops          job deploy-vps (CI)
+       k8s/app.yaml            SSH restreint
+       commit [skip ci]        deploy.sh
+       Argo CD                 Docker Compose
+       K3s / k3d              Traefik + Let's Encrypt
+       Symfony + PG16          Symfony + PG16 dédié
+       :8090/login             https://biblio.andilabayomi.fr/login
+```
+
+**Condition d'automatisation :** le job `deploy-vps` doit être présent sur `feature/ci-cd`, dépendre de la publication GHCR et des vérifications requises, et réussir dans GitHub Actions. Le runner SonarQube local doit être **en ligne** ; le cluster k3d doit être disponible pour le résultat GitOps local. Un push Git accepté n'est pas, à lui seul, une preuve de livraison.
+
+## 3. Pile technique
+
+| Fonction | Technologie |
 |---|---|
-| Application | PHP 8.2, Symfony 7.4 LTS, Twig, Symfony UX / AssetMapper |
-| Base de données | PostgreSQL 16 |
-| Tests | PHPUnit 9.6, tests unitaires et d'intégration |
-| CI/CD | GitHub Actions |
-| Qualité | SonarQube, analysé par un runner Windows self-hosted |
-| Sécurité | `composer audit`, Trivy (image Docker) |
-| Packaging | Docker, FrankenPHP |
-| Registre | GitHub Container Registry (GHCR) |
-| Orchestration | K3s via k3d |
-| GitOps | Argo CD, synchronisation de `k8s/` depuis `feature/ci-cd` |
-| Stockage | PersistentVolumeClaim de 2 Gi, StorageClass `local-path` |
+| Application | Symfony 7.4 LTS, PHP 8.2, Twig, Symfony UX / AssetMapper |
+| Données | PostgreSQL 16, Doctrine ORM et migrations PostgreSQL dédiées |
+| Tests | PHPUnit 9.6.38, base de test indépendante |
+| CI | GitHub Actions (`php-tests`, `sonar-analysis`, `docker-ghcr`) |
+| Qualité et sécurité | SonarQube, Composer audit, Trivy |
+| Image | Docker / FrankenPHP, GitHub Container Registry |
+| GitOps | `update-gitops`, Argo CD |
+| Local | Docker Desktop, k3d/K3s, Kubernetes, PVC `local-path` 2 Gi |
+| Production | VPS OVHcloud Ubuntu, Docker Compose, Traefik, Let's Encrypt |
+| Publication de production | GitHub Actions + SSH à commande forcée + script serveur `deploy.sh` |
 
-### Chaîne de livraison
-
-```text
-Développeur
-    |
-    | git push origin feature/ci-cd
-    v
-GitHub Actions
-    |
-    +--> 1. Symfony / Composer / PostgreSQL / PHPUnit
-    |
-    +--> 2. SonarQube (runner Windows self-hosted)
-    |
-    +--> 3. Docker build -> Trivy -> GHCR
-    |
-    +--> 4. Mise à jour automatique des images dans k8s/app.yaml
-                        |
-                        v
-                 Commit GitOps [skip ci]
-                        |
-                        v
-                 Argo CD (auto-sync)
-                        |
-                        v
-              K3s : Symfony + PostgreSQL
-                        |
-                        v
-           http://127.0.0.1:8090/login
-```
-
-La publication utilise un **tag correspondant au SHA Git**. Le fichier `k8s/app.yaml` référence la même version d'image pour le conteneur applicatif et le conteneur d'initialisation des migrations.
-
-## 3. Organisation du dépôt
+## 4. Organisation des fichiers utiles
 
 ```text
-.github/workflows/ci-cd.yml    # Pipeline de tests, qualité, sécurité, publication et GitOps
-argocd/biblioconnect.yaml      # Définition de l'application Argo CD
-k8s/app.yaml                  # Deployment Symfony et migrations Doctrine
-k8s/postgres.yaml             # Service + StatefulSet + volume PostgreSQL
-k8s/service.yaml              # Service HTTP / NodePort 30090
-migrations_postgresql/        # Migrations compatibles PostgreSQL
-sonar-project.properties      # Configuration de SonarQube
-Dockerfile                    # Image applicative FrankenPHP
-.dockerignore                 # Exclusions du contexte Docker
+.github/workflows/
+  ci-cd.yml                 # Tests, qualité, sécurité, GHCR, GitOps, job VPS ajouté
+  deploy-vps.yml            # Déploiement OVHcloud manuel (workflow_dispatch)
+argocd/biblioconnect.yaml   # Application GitOps, branche feature/ci-cd, chemin k8s/
+k8s/app.yaml               # Deployment Symfony et initContainer de migrations
+k8s/postgres.yaml          # PostgreSQL StatefulSet, Service et PVC
+k8s/service.yaml           # Service HTTP, NodePort 30090
+migrations_postgresql/     # Migrations adaptées au PostgreSQL du TP
+src/Controller/            # Logique applicative, dont historique des réservations
+templates/                 # Vues Twig
+Dockerfile                 # Application FrankenPHP
+sonar-project.properties   # Analyse SonarQube
 ```
 
-Le dépôt initial comportait des migrations propres à MySQL. Des migrations PostgreSQL distinctes ont été générées pour les environnements du TP, sans remplacer les migrations d'origine.
+**Sur le VPS (non versionné dans Git) :** `/home/ubuntu/deployments/biblioconnect/compose.prod.yaml`, `.env`, `.env.app`, `.env.db`, `deploy.sh`, sauvegardes sous `backups/`. Ces fichiers et secrets sont propres au serveur. **Ne jamais committer les `.env` ni les clés SSH.** Le script local `scripts/push-deploy.sh`, s'il a été ajouté au dépôt, simplifie `fetch → rebase → push` ; il ne déploie pas directement sur le VPS.
 
-## 4. Intégration continue (CI)
+## 5. Démarrer et vérifier l'environnement local
 
-Le workflow `.github/workflows/ci-cd.yml` s'exécute sur les mises à jour de la branche `feature/ci-cd` (selon les déclencheurs configurés dans le workflow).
+**Prérequis :** Docker Desktop, k3d et Git installés, runner GitHub Actions Windows disponible, SonarQube local accessible, cluster `java-demo-cluster` existant. Ne pas recréer ni supprimer le cluster contenant d'autres applications.
 
-1. **Tests Symfony :** installation Composer, démarrage d'un service PostgreSQL de test, création de la base, migrations et exécution de PHPUnit.
-2. **Qualité SonarQube :** analyse du code PHP, des templates et des ressources applicatives depuis un runner Windows disposant de SonarScanner et d'un accès au serveur SonarQube local.
-3. **Docker, Trivy et GHCR :** construction de l'image, scan de vulnérabilités puis publication seulement si les contrôles réussissent.
-4. **GitOps :** après publication, remplacement des deux références d'image dans `k8s/app.yaml`, puis commit automatique vers `feature/ci-cd`.
+Dans PowerShell :
 
-Le commit GitOps est créé avec le marqueur **`[skip ci]`**, afin d'éviter de relancer inutilement toute la chaîne de construction.
+```powershell
+k3d cluster list
+# Uniquement si le cluster existant est arrêté :
+# k3d cluster start java-demo-cluster
 
-### Contrôles validés pendant le TP
-
-- `composer audit` : aucune alerte de vulnérabilité connue lors du contrôle final local.
-- PHPUnit : **4 tests réussis, 5 assertions**.
-- Symfony : **7.4 LTS** ; PHPUnit : **9.6.38** au moment de la validation locale.
-- GitHub Actions : **4 jobs réussis** (tests, SonarQube, Docker/Trivy/GHCR, mise à jour GitOps).
-- Une image corrigée a été reconstruite sur une base Debian 13, après la détection de vulnérabilités dans l'ancienne base Debian 12 et les anciennes dépendances Composer.
-
-> Les tests démontrent la réussite du scénario du TP, mais leur nombre reste limité : ils ne constituent pas une couverture complète des fonctionnalités métier.
-
-## 5. Déploiement Kubernetes avec Argo CD
-
-L'application est isolée dans le namespace `biblioconnect` du cluster k3d existant. Les applications Java et Quiz utilisent leurs propres ressources et ne sont pas modifiées par ce déploiement.
-
-### Ressources
-
-- `StatefulSet/biblio-postgres` : PostgreSQL 16, une instance.
-- `PersistentVolumeClaim/postgres-data-biblio-postgres-0` : 2 Gi, `local-path`.
-- `Deployment/biblioconnect` : Symfony servi avec FrankenPHP.
-- `initContainer/database-migrations` : exécution des migrations Doctrine avant le démarrage du conteneur applicatif.
-- `Service/biblioconnect` : port HTTP 80, NodePort `30090`.
-- `Application/biblioconnect` : synchronisation Argo CD de la branche `feature/ci-cd`, dossier `k8s/`.
-
-Le déploiement requiert un Secret Kubernetes nommé `biblio-secrets`, **créé hors du dépôt Git**, contenant au minimum `POSTGRES_PASSWORD`, `DATABASE_URL` et `APP_SECRET`.
-
-### Vérifier le déploiement
-
-Dans **Git Bash sous Windows** :
-
-```bash
-docker exec k3d-java-demo-cluster-server-0 kubectl get applications -n argocd
-docker exec k3d-java-demo-cluster-server-0 kubectl get pods,svc,pvc -n biblioconnect
-docker exec k3d-java-demo-cluster-server-0 kubectl -n biblioconnect get deployment biblioconnect -o jsonpath='{.spec.template.spec.containers[0].image}'
-echo
+docker exec k3d-java-demo-cluster-server-0 kubectl get nodes
+docker exec k3d-java-demo-cluster-server-0 kubectl -n argocd get applications
+docker exec k3d-java-demo-cluster-server-0 kubectl -n biblioconnect get pods,svc,pvc
+docker ps -a --filter "name=java-demo-argocd-relay"
+docker ps -a --filter "name=biblioconnect-relay"
 ```
 
-L'état attendu après synchronisation est **`Synced / Healthy`** pour Argo CD, **`1/1 Running`** pour PostgreSQL et Symfony, et **`Bound`** pour le PVC.
+- **Application locale :** http://127.0.0.1:8090/login (si son relais est actif).
+- **Argo CD local :** https://localhost:8086 (certificat interne pouvant déclencher un avertissement navigateur).
 
-### Accès à l'application
+**Dépannage d'accès Argo CD connu :** le conteneur `java-demo-argocd-relay` peut rester `Up` alors que le port-forward interne vers `argocd-server` est arrêté. Après vérification que le service existe et qu'aucun transfert équivalent n'est actif :
 
-Depuis le poste de développement, un relais Docker local expose le service Kubernetes sur :
+```powershell
+docker exec -d k3d-java-demo-cluster-server-0 kubectl -n argocd port-forward --address 0.0.0.0 svc/argocd-server 18443:443
+```
 
-**<http://127.0.0.1:8090/login>**
+Cette commande ne doit pas être lancée répétitivement : vérifier l'existence du processus et du port si elle échoue. Si `kubectl` Windows ne joint pas l'API (`127.0.0.1:63247`), `docker exec ... kubectl` permet de vérifier le cluster depuis son conteneur. Un pod `argocd-applicationset-controller` a déjà présenté un `CrashLoopBackOff` sans bloquer le serveur Argo CD ; ne pas le supprimer pour résoudre un simple problème de navigateur.
 
-La route `/login` est celle qui a été validée dans le navigateur. La route `/` peut répondre `404` ; le statut HTTP de `/` n'est donc pas suffisant pour conclure à une panne de l'application.
+### Kubernetes et GitOps
 
-L'interface Argo CD est accessible, dans l'environnement du TP, via **<https://localhost:8086>** lorsque le relais Docker prévu est actif.
+L'application occupe le namespace `biblioconnect` et utilise : `Deployment/biblioconnect`, `StatefulSet/biblio-postgres`, un Secret non committé `biblio-secrets`, un PVC 2 Gi et un Service NodePort 30090. Argo CD surveille la branche `feature/ci-cd`, répertoire `k8s/`.
 
-## 6. Démonstration du Continuous Deployment
+**`Healthy`** signifie que les ressources sont opérationnelles ; **`Synced`** que l'état Kubernetes correspond à Git. Si `OutOfSync`, examiner **DIFF** avant une synchronisation. Une différence déjà observée concerne la stratégie `RollingUpdate` (`25%/25%` dans le cluster contre `maxSurge: 1`, `maxUnavailable: 0` dans Git). Ne jamais utiliser `PRUNE`/`FORCE` à l'aveugle.
 
-Le fonctionnement de bout en bout a été validé avec une modification visible de la page de connexion :
+## 6. CI : cinq jobs visés
 
-1. La **V1** affichait « Connexion ».
-2. Un changement du template Twig a permis de produire la **V2** affichant « Connexion 2 ».
-3. Un `git push` sur `feature/ci-cd` a déclenché les quatre jobs.
-4. GHCR a reçu une nouvelle image versionnée.
-5. Le job GitOps a modifié `k8s/app.yaml` et créé un commit automatique.
-6. Argo CD a synchronisé le manifeste et K3s a démarré la nouvelle image.
-7. La V2 a été constatée dans le navigateur sur `/login`.
+Sur un push vers `feature/ci-cd`, la configuration comporte les jobs suivants :
 
-**Exemple de SHA de l'image V2 :** `cbcf246e3d4ee37f6e8ed057787cd826036a850b`.
+1. **`php-tests`** : Composer, PostgreSQL de test, migrations, PHPUnit.
+2. **`sonar-analysis`** : SonarScanner sur runner Windows auto-hébergé, relié à SonarQube local.
+3. **`docker-ghcr`** : construction de l'image, scan Trivy, publication GHCR avec tag SHA.
+4. **`update-gitops`** : mise à jour des références d'image dans `k8s/app.yaml`, commit `[skip ci]`, synchronisation effectuée ensuite par Argo CD.
+5. **`deploy-vps`** : appel SSH à commande restreinte pour livrer cette image sur OVHcloud. **Vérifier sa réussite effective avant de déclarer le push unique validé.**
 
-## 7. Rollback GitOps — V2 vers V1
+**Exécution :** https://github.com/Anilzer/biblioconnect-devops/actions
 
-Le retour arrière est réalisé en modifiant **uniquement les références d'image** dans `k8s/app.yaml`, puis en poussant ce changement sur Git. Argo CD réapplique l'ancienne version sans recréer PostgreSQL.
+La CI échoue ou reste en attente si le runner Windows/SonarQube n'est pas disponible. Les avertissements Symfony de dépréciation constatés lors des tests ne constituaient pas des échecs (`4 tests`, `5 assertions`).
 
-Versions utilisées lors de la démonstration :
+## 7. Publication et versions démontrées
 
-| Version | SHA de l'image GHCR | Texte affiché |
+Image GHCR : `ghcr.io/anilzer/biblioconnect-devops:<SHA_GIT>`.
+
+| Version | SHA Git | Preuve métier/visuelle |
 |---|---|---|
 | V1 | `fdceea7f291ffb354c5d3cd1c3ccf67aae5bbad3` | Connexion |
 | V2 | `cbcf246e3d4ee37f6e8ed057787cd826036a850b` | Connexion 2 |
 
-Exemple de commande de rollback, **à ne lancer que si la V2 est effectivement la version déployée** :
+Les changements V1 → V2 et V2 → V1 ont été validés en local et sur le VPS. Une opération de rollback d'image **ne restaure pas** automatiquement les migrations ni les données PostgreSQL.
+
+## 8. Production OVHcloud
+
+**URL :** https://biblio.andilabayomi.fr/login  
+**Domaine :** enregistrement DNS A vers le VPS ; TLS via Let's Encrypt sur le Traefik **déjà en fonctionnement**.  
+**Réseaux Docker :** `proxy` partagé avec Traefik ; réseau interne isolé pour la base.  
+**Services propres à BiblioConnect :** `biblioconnect-prod-app-1`, `biblioconnect-prod-postgres-1`, service ponctuel de migrations.  
+**Base :** PostgreSQL 16 dédié, volume Docker persistant, port 5432 **non exposé publiquement**.
+
+Le VPS héberge également des applications et outils préexistants. Le déploiement BiblioConnect ne doit **ni redémarrer Traefik, ni supprimer des volumes, ni lancer `docker system prune`**, ni toucher aux applications déjà présentes (notamment Furious Ducks).
+
+### Vérifier les services sur le VPS
 
 ```bash
-sed -i 's/cbcf246e3d4ee37f6e8ed057787cd826036a850b/fdceea7f291ffb354c5d3cd1c3ccf67aae5bbad3/g' k8s/app.yaml
+cd ~/deployments/biblioconnect
+sudo docker compose -f compose.prod.yaml ps -a
+sudo docker inspect biblioconnect-prod-app-1 \
+  --format 'IMAGE={{.Config.Image}} HEALTH={{.State.Health.Status}}'
+curl -I https://biblio.andilabayomi.fr/login
+```
 
-grep 'image: ghcr.io/' k8s/app.yaml
+Une réponse HTTPS `200` et un conteneur `healthy` valident l'accessibilité et la santé technique, pas tous les parcours métier.
 
-git add k8s/app.yaml
-git commit -m 'gitops: rollback BiblioConnect V2 to V1 [skip ci]'
+### Déploiement sécurisé et rollback
+
+Le workflow GitHub Actions utilise quatre secrets : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` et `VPS_KNOWN_HOSTS`. La clé SSH dédiée est restreinte sur le VPS à une commande `deploy <SHA>`. Le script serveur :
+
+- valide le SHA Git et télécharge l'image GHCR correspondante ;
+- crée une sauvegarde PostgreSQL avant migrations ;
+- exécute les migrations avec l'image ciblée ;
+- remplace **uniquement** le conteneur applicatif BiblioConnect ;
+- attend l'état `healthy`, vérifie HTTPS et mémorise la nouvelle version ;
+- restaure l'image précédente en cas d'échec applicatif, mais **pas le schéma SQL**.
+
+**Incident résolu :** `sudo` ne transmettait pas la variable `BIBLIO_IMAGE` à Docker Compose ; Compose conservait l'image V1 malgré le téléchargement V2. La correction passe explicitement la variable avec `sudo env BIBLIO_IMAGE=... docker compose ...` et effectue un contrôle d'image et de santé.
+
+**Déploiement manuel de secours :** `.github/workflows/deploy-vps.yml` sur GitHub Actions, avec saisie d'un SHA Git complet d'image déjà validée. Ne pas confondre ce workflow manuel avec le nouveau job `deploy-vps` du pipeline `ci-cd.yml`.
+
+### Sauvegardes et exploitation
+
+Exemple de sauvegarde propre à BiblioConnect :
+
+```bash
+cd ~/deployments/biblioconnect
+mkdir -p backups && chmod 700 backups
+sudo docker compose -f compose.prod.yaml exec -T postgres \
+  pg_dump -U biblio -d biblioconnect -Fc \
+  > "backups/biblioconnect-$(date -u +%Y%m%d-%H%M%S).dump"
+chmod 600 backups/*.dump
+```
+
+Une sauvegarde conservée sur le **même VPS** ne remplace pas une sauvegarde externe restaurable et testée.
+
+## 9. Démonstration métier : données en production seulement
+
+La base PostgreSQL **de production** contient un catalogue de démonstration de 10 livres, 10 auteurs, 3 catégories et 2 langues. Des comptes client et bibliothécaire permettent de distinguer les droits d'accès, et une réservation du livre *Le Petit Prince* a été constatée en base.
+
+| Parcours | Adresse |
+|---|---|
+| Inscription | https://biblio.andilabayomi.fr/register |
+| Connexion | https://biblio.andilabayomi.fr/login |
+| Catalogue client | https://biblio.andilabayomi.fr/profile/livres |
+| Gestion bibliothécaire | https://biblio.andilabayomi.fr/librarian/livres |
+| Ajout d'un livre | https://biblio.andilabayomi.fr/librarian/livre/new |
+| Historique des réservations | https://biblio.andilabayomi.fr/librarian/reservation/history |
+
+Les rôles existants comprennent `ROLE_USER`, `ROLE_LIBRARIAN` et `ROLE_ADMIN`. Un correctif du contrôleur d'historique a été committé pour permettre au bibliothécaire de consulter les réservations des clients ; **sa présence effective sur le VPS doit être vérifiée après le déploiement automatique**.
+
+Pour consulter les données sans exposer PostgreSQL :
+
+```bash
+cd ~/deployments/biblioconnect
+sudo docker compose -f compose.prod.yaml exec postgres \
+  psql -U biblio -d biblioconnect
+```
+
+```sql
+SELECT COUNT(*) AS livres FROM livre;
+SELECT COUNT(*) AS reservations FROM reservation;
+```
+
+**Aucune fixture ni insertion métier ne doit être exécutée dans la base PostgreSQL locale** pour la démonstration demandée.
+
+## 10. Git : publication et conflits GitOps
+
+Le job `update-gitops` publie des commits automatisés sur **la même branche** que les commits applicatifs. Cela a provoqué des refus `fetch first` ou `cannot lock ref` quand la branche distante changeait entre le `fetch` et le `push`.
+
+Procédure sûre après un commit, si l'arbre de travail est propre :
+
+```bash
+git fetch origin
+git rebase origin/feature/ci-cd
 git push origin feature/ci-cd
 ```
 
-Contrôle :
+Si le script local `scripts/push-deploy.sh` a été créé et committé, il automatise cette séquence et réessaie en cas de concurrence. **Aucun `git push --force` n'est nécessaire.** En cas de conflit de rebase, le résoudre avant de pousser.
 
-```bash
-docker exec k3d-java-demo-cluster-server-0 kubectl get applications -n argocd
-docker exec k3d-java-demo-cluster-server-0 kubectl get pods -n biblioconnect
-```
+**Amélioration durable recommandée :** isoler les manifests GitOps dans une branche ou un dépôt dédié, puis adapter la source suivie par Argo CD. Cela supprimerait la concurrence directe entre les commits applicatifs et les commits du bot.
 
-**Résultat de la démonstration :** retour de « Connexion 2 » à « Connexion » dans le navigateur.
+## 11. Démonstration et preuves de soutenance
 
-> **Limite importante :** un rollback d'image ne restaure ni le schéma ni les données PostgreSQL. Les migrations doivent rester rétrocompatibles, ou être accompagnées d'une stratégie de restauration de base. Le test V1/V2 du TP n'impliquait qu'une modification d'interface.
+1. Montrer la branche `feature/ci-cd`, l'organisation du dépôt et le Dockerfile.
+2. Montrer les jobs et les rapports de qualité/sécurité dans GitHub Actions.
+3. Ouvrir Argo CD et démontrer `Synced / Healthy` après vérification du `DIFF` si nécessaire.
+4. Ouvrir BiblioConnect local sur `:8090/login`.
+5. Ouvrir la production en HTTPS et le catalogue de livres.
+6. Montrer la distinction client/bibliothécaire et, après validation de la correction, la réservation client dans l'interface bibliothécaire.
+7. Montrer une évolution d'image puis le rollback sans supprimer les données de production.
+8. Montrer le résultat du job VPS et l'image réellement démarrée sur le serveur.
 
-## 8. Sécurité et précautions
+**Attention :** ne pas présenter les cinq jobs comme tous validés tant qu'un run complet post-ajout de `deploy-vps` n'a pas été contrôlé. Les captures doivent provenir des environnements réellement exécutés et ne pas contenir de clés SSH, de mots de passe ou de tokens.
 
-- Les mots de passe PostgreSQL et la clé `APP_SECRET` ne doivent jamais être committés.
-- La publication de l'image dépend de la réussite de l'analyse Trivy prévue dans le workflow.
-- Les images versionnées évitent les déploiements ambigus liés au seul tag `latest`.
-- Le stockage PostgreSQL reste indépendant du cycle de vie des pods Symfony.
-- Le serveur SonarQube et le runner self-hosted doivent être accessibles pour exécuter l'ensemble du pipeline.
-- La synchronisation Argo CD et le déploiement Kubernetes sont indépendants d'une session ouverte dans l'interface web Argo CD.
-- Le statut `Healthy` est une indication d'état des ressources, pas une garantie exhaustive du bon fonctionnement métier.
+## 12. Répartition prévue pour la présentation
 
-## 9. Limites et perspectives
+| Présentation principale | Domaines |
+|---|---|
+| **Andil ABAYOMI** | Développement applicatif, Kubernetes/K3s, Argo CD/GitOps, déploiement VPS et rollback |
+| **Thomas VALLET** | CI et qualité, conteneurisation, documentation et préparation de la démonstration |
 
-- Augmenter la couverture des tests, notamment les scénarios métier et les parcours HTTP de bout en bout.
-- Ajouter des tests applicatifs après déploiement et une supervision des métriques et logs.
-- Renforcer la gestion des secrets (par exemple avec un gestionnaire de secrets dédié).
-- Encadrer les migrations SQL afin de garantir un rollback réellement sûr.
-- Passer d'un environnement de démonstration local à un environnement de préproduction disposant de sauvegardes, de haute disponibilité et d'un accès HTTPS approprié.
-- Évaluer et traiter séparément les avertissements de dépréciation signalés par PHPUnit/Symfony.
+Cette répartition indique les **parties attribuées pour la soutenance** ; elle ne doit pas être utilisée comme preuve de contribution individuelle au code sans vérification des réalisations effectives.
 
-## 10. Bilan
+## 13. Limites et perspectives
 
-Ce TP a permis d'industrialiser la livraison d'une application Symfony existante avec une chaîne complète : **tests → qualité → sécurité → image Docker → registre → GitOps → Kubernetes**.
+- Augmenter la couverture des tests, particulièrement les autorisations, réservations et scénarios HTTP de bout en bout.
+- Fiabiliser le port-forward local et le démarrage du runner Windows/SonarQube.
+- Traiter la dérive `OutOfSync` du Deployment et le `CrashLoopBackOff` du contrôleur ApplicationSet si leur résolution est nécessaire.
+- Renforcer la protection de la production : approbations, déploiement progressif, sauvegarde externalisée et restauration testée.
+- Séparer la branche GitOps de celle du développement pour prévenir les conflits de push.
+- Vérifier et documenter le premier **run global réussi** du push unique jusqu'au VPS.
 
-La démonstration a validé **une mise en production simulée automatique (V1 → V2)** ainsi qu'un **rollback maîtrisé (V2 → V1)**, sans impacter les autres applications du cluster et sans supprimer la base de données PostgreSQL persistante.
+## 14. Liens
+
+- Dépôt DevOps : https://github.com/Anilzer/biblioconnect-devops
+- Code et manifests : https://github.com/Anilzer/biblioconnect-devops/tree/feature/ci-cd
+- GitHub Actions : https://github.com/Anilzer/biblioconnect-devops/actions
+- Application de production : https://biblio.andilabayomi.fr/login
+- Argo CD local : https://localhost:8086 (disponible uniquement sur le PC de démonstration)
+- Application locale : http://127.0.0.1:8090/login (disponible uniquement sur le PC de démonstration)
